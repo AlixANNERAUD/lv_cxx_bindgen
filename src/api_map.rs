@@ -202,7 +202,6 @@ impl JSONRoot {
                         })
                         .collect(),
                 };
-                println!("{}", structure.name.unwrap());
 
                 s
             })
@@ -241,9 +240,6 @@ impl JSONRoot {
                 }
             }
         }
-
-        println!("{:?}", named_typedefs);
-        println!("{:?}", unnamed_typedefs);
 
         Typedefs {
             named: named_typedefs,
