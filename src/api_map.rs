@@ -127,6 +127,22 @@ pub fn parse(source_str: &str) -> Result<APIMap> {
     })
 }
 
+impl Typedefs {
+    fn flatten(&self, raw_type  : &String) -> String {
+        if self.named.contains_key(raw_type) {
+            return self.named.get(raw_type).unwrap().clone();
+        }
+
+        for (typedef, name) in &self.unnamed {
+            if typedef == raw_type {
+                return name.clone();
+            }
+        }
+
+        raw_type.clone()
+    }
+}
+
 impl JSONRoot {
     fn process_enums(&self) -> Vec<Enum> {
         self.enums
