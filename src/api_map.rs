@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use serde::Deserialize;
+
+use log::error;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct JSONRoot {
@@ -68,13 +72,12 @@ pub struct APIMap {
     pub enums: Vec<Enum>,
     pub functions: Vec<Function>,
     pub structs: Vec<Struct>,
-    pub typedefs: Vec<Typedef>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Typedef {
-    pub identifier: String,
-    pub kind: String,
+struct Typedefs {
+    pub named: HashMap<String, String>,
+    pub unnamed: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -115,11 +118,12 @@ pub struct StructField {
 pub fn parse(source_str: &str) -> Result<APIMap> {
     let json: JSONRoot = serde_json::from_str(source_str)?;
 
+    let Typedefs = json.process_typedefs();
+
     Ok(APIMap {
         enums: json.process_enums(),
         functions: json.process_functions(),
         structs: json.process_structs(),
-        typedefs: json.process_typedefs(),
     })
 }
 
@@ -184,36 +188,66 @@ impl JSONRoot {
         self.structures
             .clone()
             .into_iter()
-            .map(|structure| Struct {
-                identifier: structure.name.unwrap(),
-                fields: structure
-                    .fields
-                    .unwrap()
-                    .into_iter()
-                    .map(|field| StructField {
-                        identifier: field.clone().name.unwrap(),
-                        kind: field.parse_as_type(),
-                        bitsize: field.bitsize.map(|x| x.parse().unwrap()),
-                    })
-                    .collect(),
+            .map(|structure| {
+                let s = Struct {
+                    identifier: structure.name.clone().unwrap(),
+                    fields: structure
+                        .fields
+                        .unwrap()
+                        .into_iter()
+                        .map(|field| StructField {
+                            identifier: field.clone().name.unwrap(),
+                            kind: field.parse_as_type(),
+                            bitsize: field.bitsize.map(|x| x.parse().unwrap()),
+                        })
+                        .collect(),
+                };
+                println!("{}", structure.name.unwrap());
+
+                s
             })
             .collect()
     }
 
-    fn process_typedefs(&self) -> Vec<Typedef> {
-        self.typedefs
-            .clone()
-            .into_iter()
-            .map(|typedef| {
-                let t = Typedef {
-                    identifier: typedef.name.clone().unwrap(),
-                    kind: typedef.parse_as_type(),
-                };
+    fn process_typedefs(&self) -> Typedefs {
+        let mut named_typedefs: HashMap<String, String> = HashMap::new();
 
-                println!("{} -> {}", typedef.parse_as_type(), typedef.name.clone().unwrap());
-            
-                t
-            })
-            .collect()
+        let mut unnamed_typedefs: Vec<(String, String)> = vec![];
+
+        for typedef in &self.typedefs.clone() {
+            let typedef = typedef.clone();
+
+            let kind = typedef.parse_as_type();
+
+            // TODO : Refactor this
+            if kind.contains("struct")
+                || kind.contains("int*")
+                || kind.contains("uint8_t")
+                || kind.contains("uint16_t")
+                || kind.contains("uint32_t")
+                || kind.contains("float")
+                || kind.contains("double")
+                || kind.contains("uintptr_t")
+                || kind.contains("intptr_t")
+                || kind.contains("void*")
+                || kind.contains("int")
+                || kind.contains("union")
+                || kind.contains("int8_t")
+            {
+                unnamed_typedefs.push((kind, typedef.name.unwrap()));
+            } else {
+                if named_typedefs.insert(kind.clone(), typedef.name.clone().unwrap()).is_some() {
+                    error!("Duplicate typedef: {} -> {}", typedef.name.unwrap(), kind);
+                }
+            }
+        }
+
+        println!("{:?}", named_typedefs);
+        println!("{:?}", unnamed_typedefs);
+
+        Typedefs {
+            named: named_typedefs,
+            unnamed: unnamed_typedefs,
+        }
     }
 }

@@ -71,13 +71,13 @@ fn get_enum_identifier(api_map: &APIMap, enumeration: &Enum) -> String {
     let mut best_match = String::new();
     let mut best_match_score = 0;
     
-    for typedef in &api_map.typedefs {
+  /*  for typedef in &api_map.typedefs {
         let score = get_score_match(&common_string, &typedef.identifier);
         if score > best_match_score {
             best_match = typedef.identifier.clone();
             best_match_score = score;
         }
-    }
+    }*/
 
     if best_match_score > 0 {
         return best_match;
